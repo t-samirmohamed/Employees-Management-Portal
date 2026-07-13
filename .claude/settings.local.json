@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(dotnet add package Microsoft.AspNetCore.OpenApi --version 10.0.9)",
+      "PowerShell(dotnet add package Swashbuckle.AspNetCore.SwaggerUI --version 10.2.3)",
+      "PowerShell(dotnet add package Microsoft.AspNetCore.Identity.EntityFrameworkCore --version 10.0.9)",
+      "PowerShell(dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer --version 10.0.9)",
+      "PowerShell(dotnet add package Microsoft.EntityFrameworkCore.SqlServer --version 10.0.9)",
+      "PowerShell(dotnet add package Microsoft.EntityFrameworkCore.Tools --version 10.0.9)",
+      "PowerShell(dotnet add package Microsoft.EntityFrameworkCore.Design --version 10.0.9)",
+      "PowerShell(dotnet list package --vulnerable --include-transitive)",
+      "WebFetch(domain:github.com)",
+      "Bash(curl -s \"https://api.nuget.org/v3-flatcontainer/microsoft.openapi/index.json\")",
+      "PowerShell(dotnet add package Microsoft.OpenApi --version 2.10.0)",
+      "PowerShell(dotnet tool list -g)",
+      "PowerShell(dotnet tool install -g dotnet-ef --version 10.0.9)",
+      "PowerShell([Convert]::ToBase64String\\([System.Security.Cryptography.RandomNumberGenerator]::GetBytes\\(64\\)\\))",
+      "PowerShell(dotnet ef migrations add InitialCreate)",
+      "PowerShell(dotnet ef database update)",
+      "PowerShell(dotnet run --launch-profile http)",
+      "PowerShell(dotnet build)"
+    ]
+  }
+}
