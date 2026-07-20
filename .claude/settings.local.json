@@ -18,7 +18,9 @@
       "PowerShell(dotnet ef migrations add InitialCreate)",
       "PowerShell(dotnet ef database update)",
       "PowerShell(dotnet run --launch-profile http)",
-      "PowerShell(dotnet build)"
+      "PowerShell(dotnet build)",
+      "PowerShell(sqlcmd -S localhost -d EmployeeManagementDb -Q \"SET QUOTED_IDENTIFIER ON; SELECT u.Id AS UserId, u.Email, u.UserName, e.Id AS EmployeeId, e.FirstName, e.LastName, e.Status, e.AttendanceStatus FROM AspNetUsers u JOIN Employees e ON e.UserId = u.Id WHERE u.Email = 'jane.doe@example.com'\" -W)",
+      "PowerShell(sqlcmd -S localhost -d EmployeeManagementDb -Q \"SET QUOTED_IDENTIFIER ON; DELETE FROM Employees WHERE Email='jane.doe@example.com'; DELETE FROM AspNetUsers WHERE Email='jane.doe@example.com';\" -W)"
     ]
   }
 }

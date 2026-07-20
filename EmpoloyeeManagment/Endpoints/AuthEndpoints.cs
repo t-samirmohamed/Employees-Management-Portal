@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using EmpoloyeeManagment.Data;
 using EmpoloyeeManagment.Dtos.Auth;
 using EmpoloyeeManagment.Models;
 using EmpoloyeeManagment.Services;
@@ -23,8 +24,14 @@ public static class AuthEndpoints
     private static async Task<Results<Ok<AuthResponse>, ValidationProblem>> SignupAsync(
         SignupRequest request,
         UserManager<ApplicationUser> userManager,
-        ITokenService tokenService)
+        ITokenService tokenService,
+        AppDbContext db)
     {
+        // Every signup must produce both an AspNetUsers row and a linked Employees row,
+        // or neither — wrap both writes in one transaction (UserManager saves through the
+        // same scoped AppDbContext, so its insert participates in this transaction too).
+        await using var transaction = await db.Database.BeginTransactionAsync();
+
         var user = new ApplicationUser
         {
             UserName = request.Email,
@@ -39,6 +46,20 @@ public static class AuthEndpoints
                 .ToDictionary(g => g.Key, g => g.Select(e => e.Description).ToArray());
             return TypedResults.ValidationProblem(errors);
         }
+
+        db.Employees.Add(new Employee
+        {
+            UserId = user.Id,
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            Email = request.Email,
+            Gender = request.Gender,
+            Status = EmployeeStatus.Inactive,
+            AttendanceStatus = AttendanceStatus.OutOfOffice,
+            CreatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         var securityStamp = await userManager.GetSecurityStampAsync(user);
         var (token, expiresAtUtc) = tokenService.CreateToken(user, securityStamp);
