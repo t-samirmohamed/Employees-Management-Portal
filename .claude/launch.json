@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "employee-management-web",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-Command", "Set-Location -LiteralPath 'E:\\Seniority Plan\\employee-management-web'; npm run dev"],
+      "port": 3000
+    }
+  ]
+}

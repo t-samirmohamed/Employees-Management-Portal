@@ -72,6 +72,14 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("NextJsClient", policy =>
+        policy.WithOrigins(corsOrigins).AllowAnyHeader().AllowAnyMethod());
+    // No AllowCredentials() — auth is a Bearer token in the Authorization header, not cookies.
+});
+
 builder.Services.AddScoped<ITokenService, TokenService>();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -97,6 +105,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<ApiLoggingMiddleware>();
+
+app.UseCors("NextJsClient");
 
 app.UseAuthentication();
 app.UseAuthorization();
