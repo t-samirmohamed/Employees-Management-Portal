@@ -6,6 +6,24 @@
       "sourceType": "github",
       "skillPath": "skills/clean-code-guard/SKILL.md",
       "computedHash": "4dc02501857f29bb42d740b1d01124a99a1621762562750ef5bc00d6229715e2"
+    },
+    "docs-guard": {
+      "source": "amElnagdy/guard-skills",
+      "sourceType": "github",
+      "skillPath": "skills/docs-guard/SKILL.md",
+      "computedHash": "8e00b56420b02eaf32e2f38872f47cf26deb566243d400da04b8edd9131f6042"
+    },
+    "improve-codebase-architecture": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
+      "computedHash": "016f12709bff30a27419e8add978a9be70f5ca1fb6738b3be6793038e0aba631"
+    },
+    "test-guard": {
+      "source": "amElnagdy/guard-skills",
+      "sourceType": "github",
+      "skillPath": "skills/test-guard/SKILL.md",
+      "computedHash": "1822498db8c41906ee9eb12c76018a9645e1979fbb5d0335fe27c113b5593330"
     }
   }
 }
