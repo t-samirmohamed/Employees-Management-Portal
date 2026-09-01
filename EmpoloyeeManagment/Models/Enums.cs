@@ -27,3 +27,12 @@ public enum Role
     Supervisor,
     Employee
 }
+
+public enum TaskItemStatus
+{
+    New,
+    InProgress,
+    Rejected,
+    Cancelled,
+    Done
+}

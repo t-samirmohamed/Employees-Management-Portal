@@ -9,6 +9,7 @@ A .NET 10 minimal API backend for managing employees: authentication, employee r
 - **Employees** — list (with optional gender/status/attendance filters), view details, create; activate/deactivate is Admin-only.
 - **Users** — Admin-only: list every system user with role + linked employee summary, or create a new one with any role.
 - **Statistics** — employee counts grouped by gender (M/F), status (Active/Inactive), and attendance status (In Office/Absent/On Vacation/Out of Office).
+- **Tasks** — Admin/Manager/Supervisor assign and reassign tasks to employees; the assignee accepts or rejects (with a reason); a server-computed status (`New`/`InProgress`/`Rejected`/`Cancelled`/`Done`) tracks the lifecycle. An `AttendanceRequired` task that's `InProgress` automatically flips its assignee's attendance status to Out of Office. Comments can be added, updated, and deleted on a task by their author (or an Admin).
 - **API call logging** — every request (method, path, query, status code, duration, user id, IP) is recorded to a SQL table.
 - **Swagger UI** at `/swagger`, with a working "Authorize" button for pasting in a JWT.
 
@@ -27,9 +28,9 @@ EmpoloyeeManagment/
   Data/AppDbContext.cs                EF Core DbContext (Identity + Employees + ApiCallLogs)
   Models/                             Employee, ApplicationUser, ApiCallLog, enums (Gender, EmployeeStatus, AttendanceStatus, Role)
   Dtos/                               Request/response records, grouped by feature (Auth, Employees, Statistics, Users)
-  Endpoints/                          One static class per feature area (AuthEndpoints, EmployeeEndpoints, StatisticsEndpoints, UserEndpoints)
+  Endpoints/                          One static class per feature area (AuthEndpoints, EmployeeEndpoints, StatisticsEndpoints, UserEndpoints, TaskEndpoints)
   Authorization/AdminAuthorizationHandler.cs   Makes the Admin role bypass every role-based authorization check
-  Services/                          ITokenService / TokenService — JWT issuance
+  Services/                          ITokenService / TokenService — JWT issuance; IEmployeeAttendanceService / EmployeeAttendanceService — task-driven attendance recalculation
   Middleware/ApiLoggingMiddleware.cs  Logs every request to ApiCallLogs
   OpenApi/BearerSecuritySchemeTransformer.cs   Adds the JWT bearer scheme to the generated OpenAPI doc
   Migrations/                         EF Core migrations
@@ -70,7 +71,18 @@ EmpoloyeeManagment/
 | GET | `/api/statistics/employees` | ✔ | Counts by gender, status, and attendance status |
 | GET | `/api/users` | Admin | List every system user with role + linked employee summary |
 | POST | `/api/users` | Admin | Create a user + linked (Inactive) employee record with any role |
+| GET | `/api/tasks` | ✔ | List tasks (Employee: own only; Admin/Manager/Supervisor: all) |
+| GET | `/api/tasks/{id}` | ✔ | Task details with comments (same visibility rule) |
+| POST | `/api/tasks` | Admin/Manager/Supervisor | Assign a new task |
+| PATCH | `/api/tasks/{id}` | Admin/Manager/Supervisor | Reassign to a different employee, resets status to New |
+| PATCH | `/api/tasks/{id}/accept` | Employee (own task) | Accept an assigned task |
+| PATCH | `/api/tasks/{id}/reject` | Employee (own task) | Reject an assigned task, reason required |
+| PATCH | `/api/tasks/{id}/cancel` | Admin/Manager/Supervisor | Cancel a task |
+| PATCH | `/api/tasks/{id}/complete` | Admin/Manager/Supervisor | Mark a task done (only if it has no linked visit) |
+| POST | `/api/tasks/{id}/comments` | ✔ | Add a comment (same visibility rule as task detail) |
+| PATCH | `/api/tasks/{id}/comments/{commentId}` | ✔ | Update a comment (author or Admin) |
+| DELETE | `/api/tasks/{id}/comments/{commentId}` | ✔ | Delete a comment (author or Admin) |
 
 ## Roadmap / not yet built
 
-This is v1 — deliberately structured to extend cleanly. Role-based access control has shipped: four fixed roles (`Admin`/`Manager`/`Supervisor`/`Employee`), Admin overrides every role check, and Admin-only user management (`/api/users`). Known gaps still not in scope: employee update/delete, changing an existing user's role after creation, and per-device token revocation (current sign-out revokes all of a user's sessions at once).
+This is v1 — deliberately structured to extend cleanly. Role-based access control has shipped: four fixed roles (`Admin`/`Manager`/`Supervisor`/`Employee`), Admin overrides every role check, and Admin-only user management (`/api/users`). Task assignment, accept/reject, cancel/complete, and comments have shipped (`/api/tasks`). Known gaps still not in scope: employee update/delete, changing an existing user's role after creation, per-device token revocation (current sign-out revokes all of a user's sessions at once), task attachments, real reporting-hierarchy/team scoping for Supervisors (they currently see every task, not just "their team's" — no team model exists yet), and syncing a task's status from a linked visit (the `RelatedVisitId` field exists but isn't validated or connected to anything yet).
