@@ -8,7 +8,7 @@ namespace EmpoloyeeManagment.Services;
 
 public class TokenService(IConfiguration configuration) : ITokenService
 {
-    public (string Token, DateTime ExpiresAtUtc) CreateToken(ApplicationUser user, string securityStamp)
+    public (string Token, DateTime ExpiresAtUtc) CreateToken(ApplicationUser user, string securityStamp, IList<string> roles)
     {
         var jwtSection = configuration.GetSection("Jwt");
         var key = jwtSection["Key"] ?? throw new InvalidOperationException("Jwt:Key is not configured.");
@@ -16,14 +16,15 @@ public class TokenService(IConfiguration configuration) : ITokenService
         var audience = jwtSection["Audience"];
         var expiryMinutes = jwtSection.GetValue("ExpiryMinutes", 60);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id),
-            new Claim(ClaimTypes.NameIdentifier, user.Id),
-            new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
-            new Claim("securityStamp", securityStamp),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            new(JwtRegisteredClaimNames.Sub, user.Id),
+            new(ClaimTypes.NameIdentifier, user.Id),
+            new(ClaimTypes.Email, user.Email ?? string.Empty),
+            new("securityStamp", securityStamp),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
+        claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
 
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
         var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);

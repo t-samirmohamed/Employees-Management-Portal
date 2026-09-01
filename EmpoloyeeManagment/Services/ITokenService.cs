@@ -4,5 +4,5 @@ namespace EmpoloyeeManagment.Services;
 
 public interface ITokenService
 {
-    (string Token, DateTime ExpiresAtUtc) CreateToken(ApplicationUser user, string securityStamp);
+    (string Token, DateTime ExpiresAtUtc) CreateToken(ApplicationUser user, string securityStamp, IList<string> roles);
 }

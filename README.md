@@ -5,7 +5,9 @@ A .NET 10 minimal API backend for managing employees: authentication, employee r
 ## Features
 
 - **Auth** — signup, login, and a real sign-out (JWT bearer tokens; logout rotates the user's Identity security stamp, which immediately invalidates every token issued to that user, not just a client-side token drop). Email and username must be unique. Signing up creates both the login account *and* its linked employee record — as `Inactive` — in one atomic transaction; an admin activates them via the employee endpoints below.
-- **Employees** — list (with optional gender/status/attendance filters), view details, create, activate/deactivate.
+- **Roles** — four fixed roles (`Admin`, `Manager`, `Supervisor`, `Employee`), seeded on startup. Every signup is assigned `Employee`; an Admin can create a user with any role. Admin overrides every role check app-wide. The JWT carries the caller's role as a claim.
+- **Employees** — list (with optional gender/status/attendance filters), view details, create; activate/deactivate is Admin-only.
+- **Users** — Admin-only: list every system user with role + linked employee summary, or create a new one with any role.
 - **Statistics** — employee counts grouped by gender (M/F), status (Active/Inactive), and attendance status (In Office/Absent/On Vacation/Out of Office).
 - **API call logging** — every request (method, path, query, status code, duration, user id, IP) is recorded to a SQL table.
 - **Swagger UI** at `/swagger`, with a working "Authorize" button for pasting in a JWT.
@@ -23,9 +25,10 @@ A .NET 10 minimal API backend for managing employees: authentication, employee r
 EmpoloyeeManagment/
   Program.cs                          Composition root: DI, middleware pipeline, endpoint mapping
   Data/AppDbContext.cs                EF Core DbContext (Identity + Employees + ApiCallLogs)
-  Models/                             Employee, ApplicationUser, ApiCallLog, enums (Gender, EmployeeStatus, AttendanceStatus)
-  Dtos/                               Request/response records, grouped by feature (Auth, Employees, Statistics)
-  Endpoints/                          One static class per feature area (AuthEndpoints, EmployeeEndpoints, StatisticsEndpoints)
+  Models/                             Employee, ApplicationUser, ApiCallLog, enums (Gender, EmployeeStatus, AttendanceStatus, Role)
+  Dtos/                               Request/response records, grouped by feature (Auth, Employees, Statistics, Users)
+  Endpoints/                          One static class per feature area (AuthEndpoints, EmployeeEndpoints, StatisticsEndpoints, UserEndpoints)
+  Authorization/AdminAuthorizationHandler.cs   Makes the Admin role bypass every role-based authorization check
   Services/                          ITokenService / TokenService — JWT issuance
   Middleware/ApiLoggingMiddleware.cs  Logs every request to ApiCallLogs
   OpenApi/BearerSecuritySchemeTransformer.cs   Adds the JWT bearer scheme to the generated OpenAPI doc
@@ -56,16 +59,18 @@ EmpoloyeeManagment/
 
 | Method | Route | Auth | Description |
 |---|---|---|---|
-| POST | `/api/auth/signup` | — | Create an account + linked (Inactive) employee record, returns a JWT |
+| POST | `/api/auth/signup` | — | Create an account (role `Employee`) + linked (Inactive) employee record, returns a JWT |
 | POST | `/api/auth/login` | — | Returns a JWT |
 | POST | `/api/auth/logout` | ✔ | Revokes all of the user's outstanding tokens |
 | GET | `/api/employees` | ✔ | List employees (optional `gender`, `status`, `attendanceStatus` filters) |
 | GET | `/api/employees/{id}` | ✔ | Employee details |
 | POST | `/api/employees` | ✔ | Create an employee |
-| PATCH | `/api/employees/{id}/activate` | ✔ | Set status to Active |
-| PATCH | `/api/employees/{id}/deactivate` | ✔ | Set status to Inactive |
+| PATCH | `/api/employees/{id}/activate` | Admin | Set status to Active |
+| PATCH | `/api/employees/{id}/deactivate` | Admin | Set status to Inactive |
 | GET | `/api/statistics/employees` | ✔ | Counts by gender, status, and attendance status |
+| GET | `/api/users` | Admin | List every system user with role + linked employee summary |
+| POST | `/api/users` | Admin | Create a user + linked (Inactive) employee record with any role |
 
 ## Roadmap / not yet built
 
-This is v1 — deliberately structured to extend cleanly. Known gaps not in scope yet: employee update/delete, role-based authorization, and per-device token revocation (current sign-out revokes all of a user's sessions at once).
+This is v1 — deliberately structured to extend cleanly. Role-based access control has shipped: four fixed roles (`Admin`/`Manager`/`Supervisor`/`Employee`), Admin overrides every role check, and Admin-only user management (`/api/users`). Known gaps still not in scope: employee update/delete, changing an existing user's role after creation, and per-device token revocation (current sign-out revokes all of a user's sessions at once).

@@ -15,8 +15,8 @@ public static class EmployeeEndpoints
         group.MapGet("/", GetEmployeesAsync);
         group.MapGet("/{id:int}", GetEmployeeByIdAsync);
         group.MapPost("/", CreateEmployeeAsync);
-        group.MapPatch("/{id:int}/activate", ActivateEmployeeAsync);
-        group.MapPatch("/{id:int}/deactivate", DeactivateEmployeeAsync);
+        group.MapPatch("/{id:int}/activate", ActivateEmployeeAsync).RequireAuthorization("AdminOnly");
+        group.MapPatch("/{id:int}/deactivate", DeactivateEmployeeAsync).RequireAuthorization("AdminOnly");
 
         return app;
     }

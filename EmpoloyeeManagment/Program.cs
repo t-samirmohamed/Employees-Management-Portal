@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text;
+using EmpoloyeeManagment.Authorization;
 using EmpoloyeeManagment.Data;
 using EmpoloyeeManagment.Endpoints;
 using EmpoloyeeManagment.Middleware;
@@ -7,6 +8,7 @@ using EmpoloyeeManagment.Models;
 using EmpoloyeeManagment.OpenApi;
 using EmpoloyeeManagment.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -24,6 +26,7 @@ builder.Services
     {
         options.User.RequireUniqueEmail = true;
     })
+    .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
@@ -70,7 +73,11 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole(nameof(Role.Admin)));
+});
+builder.Services.AddSingleton<IAuthorizationHandler, AdminAuthorizationHandler>();
 
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options =>
@@ -94,6 +101,31 @@ builder.Services.AddOpenApi(options =>
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+    foreach (var role in Enum.GetValues<Role>())
+    {
+        var roleName = role.ToString();
+        if (!await roleManager.RoleExistsAsync(roleName))
+        {
+            await roleManager.CreateAsync(new IdentityRole(roleName));
+        }
+    }
+
+    var existingUsers = await userManager.Users.ToListAsync();
+    foreach (var user in existingUsers)
+    {
+        var roles = await userManager.GetRolesAsync(user);
+        if (roles.Count == 0)
+        {
+            await userManager.AddToRoleAsync(user, nameof(Role.Employee));
+        }
+    }
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -114,5 +146,6 @@ app.UseAuthorization();
 app.MapAuthEndpoints();
 app.MapEmployeeEndpoints();
 app.MapStatisticsEndpoints();
+app.MapUserEndpoints();
 
 app.Run();

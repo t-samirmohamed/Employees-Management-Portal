@@ -19,3 +19,11 @@ public enum AttendanceStatus
     OnVacation,
     OutOfOffice
 }
+
+public enum Role
+{
+    Admin,
+    Manager,
+    Supervisor,
+    Employee
+}

@@ -47,6 +47,8 @@ public static class AuthEndpoints
             return TypedResults.ValidationProblem(errors);
         }
 
+        await userManager.AddToRoleAsync(user, nameof(Role.Employee));
+
         db.Employees.Add(new Employee
         {
             UserId = user.Id,
@@ -62,7 +64,8 @@ public static class AuthEndpoints
         await transaction.CommitAsync();
 
         var securityStamp = await userManager.GetSecurityStampAsync(user);
-        var (token, expiresAtUtc) = tokenService.CreateToken(user, securityStamp);
+        var roles = await userManager.GetRolesAsync(user);
+        var (token, expiresAtUtc) = tokenService.CreateToken(user, securityStamp, roles);
         return TypedResults.Ok(new AuthResponse(token, expiresAtUtc));
     }
 
@@ -78,7 +81,8 @@ public static class AuthEndpoints
         }
 
         var securityStamp = await userManager.GetSecurityStampAsync(user);
-        var (token, expiresAtUtc) = tokenService.CreateToken(user, securityStamp);
+        var roles = await userManager.GetRolesAsync(user);
+        var (token, expiresAtUtc) = tokenService.CreateToken(user, securityStamp, roles);
         return TypedResults.Ok(new AuthResponse(token, expiresAtUtc));
     }
 
