@@ -79,6 +79,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("TaskAssigner", policy => policy.RequireRole(nameof(Role.Admin), nameof(Role.Manager), nameof(Role.Supervisor)));
     options.AddPolicy("EmployeeOnly", policy => policy.RequireRole(nameof(Role.Employee)));
     options.AddPolicy("ClientManager", policy => policy.RequireRole(nameof(Role.Admin), nameof(Role.Manager)));
+    options.AddPolicy("LeaveRequester", policy => policy.RequireRole(nameof(Role.Employee), nameof(Role.Manager), nameof(Role.Supervisor)));
 });
 builder.Services.AddSingleton<IAuthorizationHandler, AdminAuthorizationHandler>();
 
@@ -92,6 +93,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmployeeAttendanceService, EmployeeAttendanceService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -154,5 +156,7 @@ app.MapUserEndpoints();
 app.MapTaskEndpoints();
 app.MapVisitEndpoints();
 app.MapClientEndpoints();
+app.MapNotificationEndpoints();
+app.MapLeaveEndpoints();
 
 app.Run();

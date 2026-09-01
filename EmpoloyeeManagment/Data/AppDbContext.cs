@@ -13,6 +13,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
     public DbSet<Visit> Visits => Set<Visit>();
     public DbSet<Client> Clients => Set<Client>();
     public DbSet<Location> Locations => Set<Location>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -119,6 +121,34 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
             entity.HasOne<Location>()
                 .WithMany()
                 .HasForeignKey(v => v.LocationId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<Notification>(entity =>
+        {
+            entity.Property(n => n.RecipientUserId).HasMaxLength(450).IsRequired();
+            entity.Property(n => n.Type).HasConversion<string>().HasMaxLength(50);
+
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(n => n.RecipientUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<LeaveRequest>(entity =>
+        {
+            entity.Property(l => l.Reason).HasMaxLength(1000).IsRequired();
+            entity.Property(l => l.DecisionReason).HasMaxLength(1000);
+            entity.Property(l => l.Status).HasConversion<string>().HasMaxLength(20);
+
+            entity.HasOne<Employee>()
+                .WithMany()
+                .HasForeignKey(l => l.RequesterId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<Employee>()
+                .WithMany()
+                .HasForeignKey(l => l.ApproverEmployeeId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }

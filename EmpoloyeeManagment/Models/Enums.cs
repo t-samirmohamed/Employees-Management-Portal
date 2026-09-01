@@ -36,3 +36,16 @@ public enum TaskItemStatus
     Cancelled,
     Done
 }
+
+public enum LeaveRequestStatus
+{
+    Pending,
+    Accepted,
+    Rejected,
+    DelayRequested
+}
+
+public enum NotificationType
+{
+    LeaveRequestSubmitted
+}
