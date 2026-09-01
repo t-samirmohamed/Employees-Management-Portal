@@ -6,6 +6,18 @@
       "runtimeExecutable": "powershell",
       "runtimeArgs": ["-NoProfile", "-Command", "Set-Location -LiteralPath 'E:\\Seniority Plan\\employee-management-web'; npm run dev"],
       "port": 3000
+    },
+    {
+      "name": "EmpoloyeeManagment-api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "EmpoloyeeManagment", "--launch-profile", "http"],
+      "port": 5134
+    },
+    {
+      "name": "EmpoloyeeManagment-api-verify",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "EmpoloyeeManagment", "--urls", "http://localhost:5199"],
+      "port": 5199
     }
   ]
 }

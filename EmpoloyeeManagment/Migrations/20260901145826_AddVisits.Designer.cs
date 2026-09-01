@@ -4,6 +4,7 @@ using EmpoloyeeManagment.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace EmpoloyeeManagment.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260901145826_AddVisits")]
+    partial class AddVisits
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -132,37 +135,6 @@ namespace EmpoloyeeManagment.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("EmpoloyeeManagment.Models.Client", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Contact")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Clients");
-                });
-
             modelBuilder.Entity("EmpoloyeeManagment.Models.Employee", b =>
                 {
                     b.Property<int>("Id")
@@ -170,9 +142,6 @@ namespace EmpoloyeeManagment.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("AssignedLocationId")
-                        .HasColumnType("int");
 
                     b.Property<string>("AttendanceStatus")
                         .IsRequired()
@@ -213,49 +182,11 @@ namespace EmpoloyeeManagment.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AssignedLocationId");
-
                     b.HasIndex("UserId")
                         .IsUnique()
                         .HasFilter("[UserId] IS NOT NULL");
 
                     b.ToTable("Employees");
-                });
-
-            modelBuilder.Entity("EmpoloyeeManagment.Models.Location", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("ClientId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Contact")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClientId");
-
-                    b.ToTable("Locations");
                 });
 
             modelBuilder.Entity("EmpoloyeeManagment.Models.TaskComment", b =>
@@ -364,10 +295,6 @@ namespace EmpoloyeeManagment.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("ClientId");
-
-                    b.HasIndex("LocationId");
 
                     b.ToTable("Visits");
                 });
@@ -507,24 +434,10 @@ namespace EmpoloyeeManagment.Migrations
 
             modelBuilder.Entity("EmpoloyeeManagment.Models.Employee", b =>
                 {
-                    b.HasOne("EmpoloyeeManagment.Models.Location", null)
-                        .WithMany()
-                        .HasForeignKey("AssignedLocationId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("EmpoloyeeManagment.Models.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.SetNull);
-                });
-
-            modelBuilder.Entity("EmpoloyeeManagment.Models.Location", b =>
-                {
-                    b.HasOne("EmpoloyeeManagment.Models.Client", null)
-                        .WithMany()
-                        .HasForeignKey("ClientId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("EmpoloyeeManagment.Models.TaskComment", b =>
@@ -554,21 +467,6 @@ namespace EmpoloyeeManagment.Migrations
                         .WithMany()
                         .HasForeignKey("RelatedVisitId")
                         .OnDelete(DeleteBehavior.Restrict);
-                });
-
-            modelBuilder.Entity("EmpoloyeeManagment.Models.Visit", b =>
-                {
-                    b.HasOne("EmpoloyeeManagment.Models.Client", null)
-                        .WithMany()
-                        .HasForeignKey("ClientId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("EmpoloyeeManagment.Models.Location", null)
-                        .WithMany()
-                        .HasForeignKey("LocationId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

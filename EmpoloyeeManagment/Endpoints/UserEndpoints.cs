@@ -33,7 +33,7 @@ public static class UserEndpoints
                     .FirstOrDefault(),
                 Employee = db.Employees
                     .Where(e => e.UserId == u.Id)
-                    .Select(e => new EmployeeSummaryDto(e.Id, e.FirstName, e.LastName, e.Status))
+                    .Select(e => new EmployeeSummaryDto(e.Id, e.FirstName, e.LastName, e.Status, e.AssignedLocationId))
                     .FirstOrDefault()
             })
             .ToListAsync();
@@ -45,11 +45,17 @@ public static class UserEndpoints
         return TypedResults.Ok(users);
     }
 
-    private static async Task<Results<Created<UserResponse>, ValidationProblem>> CreateUserAsync(
+    private static async Task<Results<Created<UserResponse>, ValidationProblem, NotFound>> CreateUserAsync(
         CreateUserRequest request,
         UserManager<ApplicationUser> userManager,
         AppDbContext db)
     {
+        if (request.AssignedLocationId is not null)
+        {
+            var locationExists = await db.Locations.AnyAsync(l => l.Id == request.AssignedLocationId);
+            if (!locationExists) return TypedResults.NotFound();
+        }
+
         await using var transaction = await db.Database.BeginTransactionAsync();
 
         var user = new ApplicationUser
@@ -78,6 +84,7 @@ public static class UserEndpoints
             Gender = request.Gender,
             Status = EmployeeStatus.Inactive,
             AttendanceStatus = AttendanceStatus.OutOfOffice,
+            AssignedLocationId = request.AssignedLocationId,
             CreatedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync();

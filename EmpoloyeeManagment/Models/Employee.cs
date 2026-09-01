@@ -10,5 +10,6 @@ public class Employee
     public Gender Gender { get; set; }
     public EmployeeStatus Status { get; set; } = EmployeeStatus.Active;
     public AttendanceStatus AttendanceStatus { get; set; } = AttendanceStatus.InOffice;
+    public int? AssignedLocationId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

@@ -10,6 +10,8 @@ A .NET 10 minimal API backend for managing employees: authentication, employee r
 - **Users** — Admin-only: list every system user with role + linked employee summary, or create a new one with any role.
 - **Statistics** — employee counts grouped by gender (M/F), status (Active/Inactive), and attendance status (In Office/Absent/On Vacation/Out of Office).
 - **Tasks** — Admin/Manager/Supervisor assign and reassign tasks to employees; the assignee accepts or rejects (with a reason); a server-computed status (`New`/`InProgress`/`Rejected`/`Cancelled`/`Done`) tracks the lifecycle. An `AttendanceRequired` task that's `InProgress` automatically flips its assignee's attendance status to Out of Office. Comments can be added, updated, and deleted on a task by their author (or an Admin).
+- **Clients & locations** — Admin/Manager list every client with its locations; Supervisor sees only the client that owns their assigned location. Admin/Manager create a client with zero or more nested locations in one call. Per-client visit counts for the last month/3 months/6 months/year.
+- **Visits** — a `Visit` has a `DateTime`, `ClientId`, and `LocationId` (FK-constrained to `Client`/`Location`), with no independent status: it always reflects the `Status` of the `TaskItem` it drives. Admin/Manager/Supervisor create a visit (`POST /api/visits`), which atomically creates the `Visit` and its driving `TaskItem` (always `AttendanceRequired`); creating or accepting a visit is blocked if its assignee already has another visit-linked task that's `InProgress`. A task can optionally link to a `Visit` (`RelatedVisitId`); accepting or completing a visit-linked task enforces the same rules.
 - **API call logging** — every request (method, path, query, status code, duration, user id, IP) is recorded to a SQL table.
 - **Swagger UI** at `/swagger`, with a working "Authorize" button for pasting in a JWT.
 
@@ -25,10 +27,10 @@ A .NET 10 minimal API backend for managing employees: authentication, employee r
 ```
 EmpoloyeeManagment/
   Program.cs                          Composition root: DI, middleware pipeline, endpoint mapping
-  Data/AppDbContext.cs                EF Core DbContext (Identity + Employees + ApiCallLogs)
-  Models/                             Employee, ApplicationUser, ApiCallLog, enums (Gender, EmployeeStatus, AttendanceStatus, Role)
-  Dtos/                               Request/response records, grouped by feature (Auth, Employees, Statistics, Users)
-  Endpoints/                          One static class per feature area (AuthEndpoints, EmployeeEndpoints, StatisticsEndpoints, UserEndpoints, TaskEndpoints)
+  Data/AppDbContext.cs                EF Core DbContext (Identity + Employees + ApiCallLogs + Tasks + TaskComments + Visits + Clients + Locations)
+  Models/                             Employee, ApplicationUser, ApiCallLog, TaskItem, TaskComment, Visit, Client, Location, enums (Gender, EmployeeStatus, AttendanceStatus, Role, TaskItemStatus)
+  Dtos/                               Request/response records, grouped by feature (Auth, Employees, Statistics, Users, Tasks, Visits, Clients)
+  Endpoints/                          One static class per feature area (AuthEndpoints, EmployeeEndpoints, StatisticsEndpoints, UserEndpoints, TaskEndpoints, VisitEndpoints, ClientEndpoints)
   Authorization/AdminAuthorizationHandler.cs   Makes the Admin role bypass every role-based authorization check
   Services/                          ITokenService / TokenService — JWT issuance; IEmployeeAttendanceService / EmployeeAttendanceService — task-driven attendance recalculation
   Middleware/ApiLoggingMiddleware.cs  Logs every request to ApiCallLogs
@@ -82,7 +84,14 @@ EmpoloyeeManagment/
 | POST | `/api/tasks/{id}/comments` | ✔ | Add a comment (same visibility rule as task detail) |
 | PATCH | `/api/tasks/{id}/comments/{commentId}` | ✔ | Update a comment (author or Admin) |
 | DELETE | `/api/tasks/{id}/comments/{commentId}` | ✔ | Delete a comment (author or Admin) |
+| GET | `/api/visits` | ✔ | List visits (Employee: own only; Admin/Manager/Supervisor: all) |
+| GET | `/api/visits/{id}` | ✔ | Visit details, `Status` mirrors its linked task (same visibility rule) |
+| POST | `/api/visits` | Admin/Manager/Supervisor | Create a visit + its driving task in one transaction |
+| GET | `/api/clients` | Admin/Manager/Supervisor | List clients (Admin/Manager: all; Supervisor: only the client owning their assigned location) |
+| GET | `/api/clients/{id}` | Admin/Manager/Supervisor | Client details with its locations (same visibility rule) |
+| POST | `/api/clients` | Admin/Manager | Create a client with zero or more nested locations |
+| GET | `/api/clients/{id}/visit-stats` | Admin/Manager/Supervisor | Visit count for the client (`range=month\|3month\|6month\|year`, same visibility rule) |
 
 ## Roadmap / not yet built
 
-This is v1 — deliberately structured to extend cleanly. Role-based access control has shipped: four fixed roles (`Admin`/`Manager`/`Supervisor`/`Employee`), Admin overrides every role check, and Admin-only user management (`/api/users`). Task assignment, accept/reject, cancel/complete, and comments have shipped (`/api/tasks`). Known gaps still not in scope: employee update/delete, changing an existing user's role after creation, per-device token revocation (current sign-out revokes all of a user's sessions at once), task attachments, real reporting-hierarchy/team scoping for Supervisors (they currently see every task, not just "their team's" — no team model exists yet), and syncing a task's status from a linked visit (the `RelatedVisitId` field exists but isn't validated or connected to anything yet).
+This is v1 — deliberately structured to extend cleanly. Role-based access control has shipped: four fixed roles (`Admin`/`Manager`/`Supervisor`/`Employee`), Admin overrides every role check, and Admin-only user management (`/api/users`). Task assignment, accept/reject, cancel/complete, and comments have shipped (`/api/tasks`), including a real FK from `RelatedVisitId` to `Visits` and a visit-aware concurrency check on accept. Visits have fully shipped: `GET /api/visits`, `GET /api/visits/{id}`, and `POST /api/visits` (creates the `Visit` and its driving task transactionally, enforcing the client/location/assignee checks and the accepted-visit concurrency rule), built on top of the `clients` feature's `Client`/`Location` entities (`GET`/`POST /api/clients`, per-client visit-count stats, and a Supervisor's `AssignedLocationId` on `Employee`). Known gaps still not in scope: employee update/delete, changing an existing user's role after creation, per-device token revocation (current sign-out revokes all of a user's sessions at once), task attachments, real reporting-hierarchy/team scoping for Supervisors (they currently see every task/visit, not just "their team's" — no team model exists yet), reassigning a visit-linked task to a new employee without re-checking the visit concurrency rule, editing/deleting a client or location (or adding a location to an already-created client), changing a Supervisor's `AssignedLocationId` after user creation, and a "most visited clients" ranking (planned for a future `dashboards` feature).

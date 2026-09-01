@@ -78,6 +78,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AdminOnly", policy => policy.RequireRole(nameof(Role.Admin)));
     options.AddPolicy("TaskAssigner", policy => policy.RequireRole(nameof(Role.Admin), nameof(Role.Manager), nameof(Role.Supervisor)));
     options.AddPolicy("EmployeeOnly", policy => policy.RequireRole(nameof(Role.Employee)));
+    options.AddPolicy("ClientManager", policy => policy.RequireRole(nameof(Role.Admin), nameof(Role.Manager)));
 });
 builder.Services.AddSingleton<IAuthorizationHandler, AdminAuthorizationHandler>();
 
@@ -151,5 +152,7 @@ app.MapEmployeeEndpoints();
 app.MapStatisticsEndpoints();
 app.MapUserEndpoints();
 app.MapTaskEndpoints();
+app.MapVisitEndpoints();
+app.MapClientEndpoints();
 
 app.Run();

@@ -63,10 +63,19 @@ public static class TaskEndpoints
         return TypedResults.Ok(new TaskDetailResponse(ToDetailDto(task), comments));
     }
 
-    private static async Task<Results<Created<TaskDetailDto>, NotFound>> CreateTaskAsync(CreateTaskRequest request, AppDbContext db)
+    private static async Task<Results<Created<TaskDetailDto>, NotFound, BadRequest<string>>> CreateTaskAsync(CreateTaskRequest request, AppDbContext db)
     {
         var assigneeExists = await db.Employees.AnyAsync(e => e.Id == request.AssigneeId);
         if (!assigneeExists) return TypedResults.NotFound();
+
+        if (request.RelatedVisitId is not null)
+        {
+            var visitExists = await db.Visits.AnyAsync(v => v.Id == request.RelatedVisitId);
+            if (!visitExists) return TypedResults.NotFound();
+
+            var alreadyLinked = await db.Tasks.AnyAsync(t => t.RelatedVisitId == request.RelatedVisitId);
+            if (alreadyLinked) return TypedResults.BadRequest("This visit is already linked to another task.");
+        }
 
         var task = new TaskItem
         {
@@ -128,6 +137,11 @@ public static class TaskEndpoints
         if (task.Status != TaskItemStatus.New)
         {
             return TypedResults.BadRequest($"Cannot accept a task with status {task.Status}.");
+        }
+
+        if (task.RelatedVisitId is not null && await HasActiveAcceptedVisitAsync(task.AssigneeId, db))
+        {
+            return TypedResults.BadRequest("This employee already has another accepted visit that isn't done yet.");
         }
 
         task.Status = TaskItemStatus.InProgress;
@@ -195,11 +209,6 @@ public static class TaskEndpoints
     {
         var task = await db.Tasks.FirstOrDefaultAsync(t => t.Id == id);
         if (task is null) return TypedResults.NotFound();
-
-        if (task.RelatedVisitId is not null)
-        {
-            return TypedResults.BadRequest("This task's status is derived from its linked visit and cannot be completed manually.");
-        }
 
         if (task.Status != TaskItemStatus.InProgress)
         {
@@ -290,6 +299,9 @@ public static class TaskEndpoints
         var caller = await GetCallerEmployeeAsync(principal, db);
         return caller is not null && task.AssigneeId == caller.Id;
     }
+
+    private static Task<bool> HasActiveAcceptedVisitAsync(int employeeId, AppDbContext db) =>
+        db.Tasks.AnyAsync(t => t.AssigneeId == employeeId && t.RelatedVisitId != null && t.Status == TaskItemStatus.InProgress);
 
     private static TaskDetailDto ToDetailDto(TaskItem task) => new(
         task.Id, task.Name, task.DueDateTime, task.AssigneeId, task.RelatedVisitId,
