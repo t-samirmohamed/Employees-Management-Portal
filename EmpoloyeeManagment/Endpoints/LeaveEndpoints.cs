@@ -2,6 +2,7 @@ using System.Security.Claims;
 using EmpoloyeeManagment.Data;
 using EmpoloyeeManagment.Dtos.Leaves;
 using EmpoloyeeManagment.Models;
+using EmpoloyeeManagment.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
@@ -59,7 +60,7 @@ public static class LeaveEndpoints
     }
 
     private static async Task<Results<Created<LeaveRequestDetailDto>, NotFound, BadRequest<string>>> CreateLeaveRequestAsync(
-        CreateLeaveRequestRequest request, ClaimsPrincipal principal, AppDbContext db)
+        CreateLeaveRequestRequest request, ClaimsPrincipal principal, AppDbContext db, INotificationService notificationService)
     {
         var caller = await GetCallerEmployeeAsync(principal, db);
         if (caller is null) return TypedResults.NotFound();
@@ -81,6 +82,12 @@ public static class LeaveEndpoints
 
         db.LeaveRequests.Add(leaveRequest);
         await db.SaveChangesAsync();
+
+        var approverUserIds = await GetEligibleApproverUserIdsAsync(caller.Id, db);
+        if (approverUserIds.Count > 0)
+        {
+            await notificationService.NotifyLeaveRequestSubmittedAsync(leaveRequest.Id, approverUserIds);
+        }
 
         return TypedResults.Created($"/api/leaves/{leaveRequest.Id}", ToDetailDto(leaveRequest));
     }
@@ -134,7 +141,7 @@ public static class LeaveEndpoints
     }
 
     private static async Task<Results<Ok<LeaveRequestDetailDto>, NotFound, BadRequest<string>, ForbidHttpResult>> AcceptLeaveRequestAsync(
-        int id, ClaimsPrincipal principal, AppDbContext db)
+        int id, ClaimsPrincipal principal, AppDbContext db, INotificationService notificationService)
     {
         var leaveRequest = await db.LeaveRequests.FirstOrDefaultAsync(l => l.Id == id);
         if (leaveRequest is null) return TypedResults.NotFound();
@@ -155,11 +162,17 @@ public static class LeaveEndpoints
         leaveRequest.ApproverEmployeeId = caller.Id;
         await db.SaveChangesAsync();
 
+        var requesterUserId = await GetEmployeeUserIdAsync(leaveRequest.RequesterId, db);
+        if (requesterUserId is not null)
+        {
+            await notificationService.NotifyLeaveRequestAcceptedAsync(leaveRequest.Id, requesterUserId);
+        }
+
         return TypedResults.Ok(ToDetailDto(leaveRequest));
     }
 
     private static async Task<Results<Ok<LeaveRequestDetailDto>, NotFound, BadRequest<string>, ForbidHttpResult>> RejectLeaveRequestAsync(
-        int id, RejectLeaveRequestRequest request, ClaimsPrincipal principal, AppDbContext db)
+        int id, RejectLeaveRequestRequest request, ClaimsPrincipal principal, AppDbContext db, INotificationService notificationService)
     {
         var leaveRequest = await db.LeaveRequests.FirstOrDefaultAsync(l => l.Id == id);
         if (leaveRequest is null) return TypedResults.NotFound();
@@ -186,11 +199,17 @@ public static class LeaveEndpoints
         leaveRequest.DecisionReason = request.Reason;
         await db.SaveChangesAsync();
 
+        var requesterUserId = await GetEmployeeUserIdAsync(leaveRequest.RequesterId, db);
+        if (requesterUserId is not null)
+        {
+            await notificationService.NotifyLeaveRequestRejectedAsync(leaveRequest.Id, requesterUserId);
+        }
+
         return TypedResults.Ok(ToDetailDto(leaveRequest));
     }
 
     private static async Task<Results<Ok<LeaveRequestDetailDto>, NotFound, BadRequest<string>, ForbidHttpResult>> RequestDelayAsync(
-        int id, RequestDelayRequest request, ClaimsPrincipal principal, AppDbContext db)
+        int id, RequestDelayRequest request, ClaimsPrincipal principal, AppDbContext db, INotificationService notificationService)
     {
         var leaveRequest = await db.LeaveRequests.FirstOrDefaultAsync(l => l.Id == id);
         if (leaveRequest is null) return TypedResults.NotFound();
@@ -218,6 +237,12 @@ public static class LeaveEndpoints
         leaveRequest.RequestedDelayDate = request.TargetDate;
         await db.SaveChangesAsync();
 
+        var requesterUserId = await GetEmployeeUserIdAsync(leaveRequest.RequesterId, db);
+        if (requesterUserId is not null)
+        {
+            await notificationService.NotifyLeaveRequestDelayRequestedAsync(leaveRequest.Id, requesterUserId);
+        }
+
         return TypedResults.Ok(ToDetailDto(leaveRequest));
     }
 
@@ -241,6 +266,36 @@ public static class LeaveEndpoints
             .FirstOrDefaultAsync();
 
         return roleName is null ? null : Enum.Parse<Role>(roleName);
+    }
+
+    private static Task<string?> GetEmployeeUserIdAsync(int employeeId, AppDbContext db) =>
+        db.Employees.Where(e => e.Id == employeeId).Select(e => e.UserId).FirstOrDefaultAsync();
+
+    // Recipients for a "leave request submitted" notification: everyone whose role
+    // outranks the requester's, per the same rank table CanActionLeaveRequest uses —
+    // i.e. exactly the set of people who are actually allowed to action this request.
+    private static async Task<List<string>> GetEligibleApproverUserIdsAsync(int requesterEmployeeId, AppDbContext db)
+    {
+        var requesterRole = await GetEmployeeRoleAsync(requesterEmployeeId, db);
+        if (requesterRole is null) return [];
+        var requesterRank = GetRoleRank(requesterRole.Value);
+
+        var employeeRoles = await db.Employees
+            .Where(e => e.UserId != null && e.Id != requesterEmployeeId)
+            .Select(e => new
+            {
+                UserId = e.UserId!,
+                RoleName = db.Roles
+                    .Where(r => db.UserRoles.Any(ur => ur.UserId == e.UserId && ur.RoleId == r.Id))
+                    .Select(r => r.Name)
+                    .FirstOrDefault()
+            })
+            .ToListAsync();
+
+        return employeeRoles
+            .Where(e => e.RoleName is not null && GetRoleRank(Enum.Parse<Role>(e.RoleName)) > requesterRank)
+            .Select(e => e.UserId)
+            .ToList();
     }
 
     // Strict linear seniority used for approver routing: Employee < Supervisor < Manager < Admin.

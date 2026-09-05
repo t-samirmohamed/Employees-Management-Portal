@@ -63,10 +63,11 @@ public static class TaskEndpoints
         return TypedResults.Ok(new TaskDetailResponse(ToDetailDto(task), comments));
     }
 
-    private static async Task<Results<Created<TaskDetailDto>, NotFound, BadRequest<string>>> CreateTaskAsync(CreateTaskRequest request, AppDbContext db)
+    private static async Task<Results<Created<TaskDetailDto>, NotFound, BadRequest<string>>> CreateTaskAsync(
+        CreateTaskRequest request, AppDbContext db, INotificationService notificationService)
     {
-        var assigneeExists = await db.Employees.AnyAsync(e => e.Id == request.AssigneeId);
-        if (!assigneeExists) return TypedResults.NotFound();
+        var assignee = await db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == request.AssigneeId);
+        if (assignee is null) return TypedResults.NotFound();
 
         if (request.RelatedVisitId is not null)
         {
@@ -92,11 +93,16 @@ public static class TaskEndpoints
         db.Tasks.Add(task);
         await db.SaveChangesAsync();
 
+        if (assignee.UserId is not null)
+        {
+            await notificationService.NotifyTaskAssignedAsync(task.Id, assignee.UserId);
+        }
+
         return TypedResults.Created($"/api/tasks/{task.Id}", ToDetailDto(task));
     }
 
     private static async Task<Results<Ok<TaskDetailDto>, NotFound, BadRequest<string>>> ReassignTaskAsync(
-        int id, ReassignTaskRequest request, AppDbContext db, IEmployeeAttendanceService attendanceService)
+        int id, ReassignTaskRequest request, AppDbContext db, IEmployeeAttendanceService attendanceService, INotificationService notificationService)
     {
         var task = await db.Tasks.FirstOrDefaultAsync(t => t.Id == id);
         if (task is null) return TypedResults.NotFound();
@@ -106,8 +112,8 @@ public static class TaskEndpoints
             return TypedResults.BadRequest($"Cannot reassign a task with status {task.Status}.");
         }
 
-        var assigneeExists = await db.Employees.AnyAsync(e => e.Id == request.NewAssigneeId);
-        if (!assigneeExists) return TypedResults.NotFound();
+        var newAssignee = await db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == request.NewAssigneeId);
+        if (newAssignee is null) return TypedResults.NotFound();
 
         var previousAssigneeId = task.AssigneeId;
         var wasInProgress = task.Status == TaskItemStatus.InProgress;
@@ -120,6 +126,11 @@ public static class TaskEndpoints
         if (wasInProgress && task.AttendanceRequired)
         {
             await attendanceService.RecalculateAsync(previousAssigneeId);
+        }
+
+        if (newAssignee.UserId is not null)
+        {
+            await notificationService.NotifyTaskAssignedAsync(task.Id, newAssignee.UserId);
         }
 
         return TypedResults.Ok(ToDetailDto(task));

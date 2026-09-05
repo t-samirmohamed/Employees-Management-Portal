@@ -2,6 +2,7 @@ using System.Security.Claims;
 using EmpoloyeeManagment.Data;
 using EmpoloyeeManagment.Dtos.Visits;
 using EmpoloyeeManagment.Models;
+using EmpoloyeeManagment.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
@@ -58,7 +59,7 @@ public static class VisitEndpoints
     }
 
     private static async Task<Results<Created<VisitDetailDto>, NotFound, BadRequest<string>>> CreateVisitAsync(
-        CreateVisitRequest request, AppDbContext db)
+        CreateVisitRequest request, AppDbContext db, INotificationService notificationService)
     {
         var client = await db.Clients.FirstOrDefaultAsync(c => c.Id == request.ClientId);
         if (client is null) return TypedResults.NotFound();
@@ -70,8 +71,8 @@ public static class VisitEndpoints
             return TypedResults.BadRequest("The selected location does not belong to the selected client.");
         }
 
-        var assigneeExists = await db.Employees.AnyAsync(e => e.Id == request.AssigneeId);
-        if (!assigneeExists) return TypedResults.NotFound();
+        var assignee = await db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == request.AssigneeId);
+        if (assignee is null) return TypedResults.NotFound();
 
         if (await HasActiveAcceptedVisitAsync(request.AssigneeId, db))
         {
@@ -106,6 +107,11 @@ public static class VisitEndpoints
         db.Tasks.Add(task);
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
+
+        if (assignee.UserId is not null)
+        {
+            await notificationService.NotifyVisitAssignedAsync(visit.Id, assignee.UserId);
+        }
 
         return TypedResults.Created($"/api/visits/{visit.Id}", ToDetailDto(visit, task));
     }

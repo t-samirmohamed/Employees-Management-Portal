@@ -47,5 +47,10 @@ public enum LeaveRequestStatus
 
 public enum NotificationType
 {
-    LeaveRequestSubmitted
+    LeaveRequestSubmitted,
+    LeaveRequestAccepted,
+    LeaveRequestRejected,
+    LeaveRequestDelayRequested,
+    TaskAssigned,
+    VisitAssigned
 }
