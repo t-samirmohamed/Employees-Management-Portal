@@ -4,6 +4,8 @@ public record CreateLocationRequest(string Name, string Email, string Contact);
 
 public record CreateClientRequest(string Name, string Email, string Contact, List<CreateLocationRequest>? Locations);
 
+public record UpdateClientRequest(string Name, string Email, string Contact);
+
 public record LocationDto(int Id, string Name, string Email, string Contact);
 
 public record ClientListItemDto(int Id, string Name, string Email, string Contact);

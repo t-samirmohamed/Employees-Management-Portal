@@ -16,6 +16,8 @@ public static class ClientEndpoints
         group.MapGet("/", GetClientsAsync);
         group.MapGet("/{id:int}", GetClientByIdAsync);
         group.MapPost("/", CreateClientAsync).RequireAuthorization("ClientManager");
+        group.MapPatch("/{id:int}", UpdateClientAsync).RequireAuthorization("ClientManager");
+        group.MapPost("/{id:int}/locations", AddLocationAsync).RequireAuthorization("ClientManager");
         group.MapGet("/{id:int}/visit-stats", GetClientVisitStatsAsync);
 
         return app;
@@ -91,6 +93,39 @@ public static class ClientEndpoints
         var detail = new ClientDetailDto(client.Id, client.Name, client.Email, client.Contact, client.CreatedAt, locationDtos);
 
         return TypedResults.Created($"/api/clients/{client.Id}", detail);
+    }
+
+    private static async Task<Results<Ok<ClientListItemDto>, NotFound>> UpdateClientAsync(
+        int id, UpdateClientRequest request, AppDbContext db)
+    {
+        var client = await db.Clients.FirstOrDefaultAsync(c => c.Id == id);
+        if (client is null) return TypedResults.NotFound();
+
+        client.Name = request.Name;
+        client.Email = request.Email;
+        client.Contact = request.Contact;
+        await db.SaveChangesAsync();
+
+        return TypedResults.Ok(new ClientListItemDto(client.Id, client.Name, client.Email, client.Contact));
+    }
+
+    private static async Task<Results<Created<LocationDto>, NotFound>> AddLocationAsync(
+        int id, CreateLocationRequest request, AppDbContext db)
+    {
+        if (!await db.Clients.AnyAsync(c => c.Id == id)) return TypedResults.NotFound();
+
+        var location = new Location
+        {
+            ClientId = id,
+            Name = request.Name,
+            Email = request.Email,
+            Contact = request.Contact,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Locations.Add(location);
+        await db.SaveChangesAsync();
+
+        return TypedResults.Created($"/api/clients/{id}", new LocationDto(location.Id, location.Name, location.Email, location.Contact));
     }
 
     private static async Task<Results<Ok<ClientVisitStatsDto>, NotFound, BadRequest<string>>> GetClientVisitStatsAsync(

@@ -130,6 +130,47 @@ using (var scope = app.Services.CreateScope())
             await userManager.AddToRoleAsync(user, nameof(Role.Employee));
         }
     }
+
+    // Idempotent initial Admin seed — skipped when SeedAdmin isn't configured (e.g. production).
+    var seedAdminEmail = builder.Configuration["SeedAdmin:Email"];
+    var seedAdminPassword = builder.Configuration["SeedAdmin:Password"];
+    if (!string.IsNullOrWhiteSpace(seedAdminEmail) && !string.IsNullOrWhiteSpace(seedAdminPassword)
+        && await userManager.FindByEmailAsync(seedAdminEmail) is null)
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await using var transaction = await db.Database.BeginTransactionAsync();
+
+        var admin = new ApplicationUser
+        {
+            UserName = seedAdminEmail,
+            Email = seedAdminEmail,
+            EmailConfirmed = true
+        };
+
+        var createResult = await userManager.CreateAsync(admin, seedAdminPassword);
+        if (!createResult.Succeeded)
+        {
+            throw new InvalidOperationException(
+                $"Failed to seed admin user: {string.Join("; ", createResult.Errors.Select(e => e.Description))}");
+        }
+
+        await userManager.AddToRoleAsync(admin, nameof(Role.Admin));
+
+        db.Employees.Add(new Employee
+        {
+            UserId = admin.Id,
+            FirstName = "System",
+            LastName = "Admin",
+            Email = seedAdminEmail,
+            Gender = Gender.M,
+            Status = EmployeeStatus.Active,
+            AttendanceStatus = AttendanceStatus.InOffice,
+            CreatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        await transaction.CommitAsync();
+    }
 }
 
 if (app.Environment.IsDevelopment())
