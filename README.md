@@ -61,6 +61,27 @@ EmpoloyeeManagment/
 
 **Note:** the JWT signing key in `appsettings.Development.json` is a locally-generated dev-only value. Move it to user-secrets or an environment variable before this project is ever pushed to source control or deployed anywhere.
 
+### Setting up the database on another machine / an external server
+
+Two ways to create the schema on a SQL Server that isn't your local dev instance, depending on what's available on the target:
+
+**A. The target machine (or your own machine, pointed at a remote connection string) has the .NET SDK + `dotnet-ef`:**
+```
+dotnet ef database update --connection "Server=<host>;Database=EmployeeManagementDb;User Id=<user>;Password=<password>;TrustServerCertificate=True;"
+```
+This applies all migrations directly — always in sync with the codebase, nothing to regenerate.
+
+**B. The target is a bare SQL Server with no .NET tooling** (a DBA-run deploy, a managed SQL instance, CI/CD that just runs `.sql` files, etc.): run the pre-generated script at [`EmpoloyeeManagment/docs/database-setup.sql`](EmpoloyeeManagment/docs/database-setup.sql) against it — via SSMS ("Open File" → Execute), Azure Data Studio, or:
+```
+sqlcmd -S <host> -d EmployeeManagementDb -U <user> -P <password> -i EmpoloyeeManagment/docs/database-setup.sql
+```
+(Add `-C` if the server uses a self-signed/dev certificate.) The script is **idempotent** — generated with `dotnet ef migrations script --idempotent`, it checks `__EFMigrationsHistory` before each change, so re-running it (e.g. against a DB that already has some migrations applied) only applies what's missing. Target database must already exist (`CREATE DATABASE EmployeeManagementDb;` first) — the script creates tables, not the database itself.
+
+**Whichever way you create the schema**, remember:
+- The four roles (`Admin`/`Manager`/`Supervisor`/`Employee`) are **not** in the script — they're seeded in code at app startup (`Program.cs`), so they appear automatically the first time the API runs against the new database.
+- **Regenerate the script whenever you add a migration** — it's a snapshot, not a live query: `dotnet ef migrations script --idempotent --output EmpoloyeeManagment/docs/database-setup.sql` (overwrites the file; re-run from the repo root).
+- Point the app at the new database by updating `ConnectionStrings:DefaultConnection` for whichever environment you're deploying (`appsettings.Production.json`, an environment variable, or user-secrets — not by editing `appsettings.Development.json`).
+
 ## API overview
 
 | Method | Route | Auth | Description |
